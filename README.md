@@ -21,4 +21,5 @@ The default build type is `debug`. Choose `release` or `profile` with
 
 See [Building](doc/BUILDING.md) for SDK selection and output-directory
 customization, and [Project shell](doc/PROJECT-SHELL.md) for the shell
-environment and available commands.
+environment and available commands. See the [changelog](doc/CHANGELOG.md) for
+template updates.
