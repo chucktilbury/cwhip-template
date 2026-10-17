@@ -34,6 +34,28 @@ esac
 project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 build_dir="$project_root/build"
 
+if [[ -z "${CWHIP_SDK:-}" ]]; then
+    config_home="${XDG_CONFIG_HOME:-}"
+    if [[ -z "$config_home" && -n "${HOME:-}" ]]; then
+        config_home="$HOME/.config"
+    fi
+    if [[ -n "$config_home" && "$config_home" != /* ]]; then
+        printf "Cannot discover sdk_prefix: config home '%s' is not absolute.\n" \
+            "$config_home" >&2
+        exit 1
+    fi
+    settings="$config_home/cwhip/settings.toml"
+    if [[ -n "$config_home" && -e "$settings" ]]; then
+        if ! sdk_prefix="$(python3 "$project_root/scripts/sdk-prefix.py" "$settings")"; then
+            printf 'SDK settings discovery failed; project shell was not started.\n' >&2
+            exit 1
+        fi
+        if [[ -n "$sdk_prefix" ]]; then
+            export CWHIP_SDK="$sdk_prefix"
+        fi
+    fi
+fi
+
 export _PROJECT_LOC="$project_root"
 export _PROJECT_NAME="$(basename -- "$project_root")"
 export _BUILD_TYPE="$build_type"
