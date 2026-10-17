@@ -12,7 +12,8 @@ order:
 
 1. An explicit, non-empty `CWHIP_SDK` environment variable.
 2. The top-level TOML string `sdk_prefix` in
-   `$HOME/.config/cwhip/settings.toml`.
+   `$XDG_CONFIG_HOME/cwhip/settings.toml`, or
+   `$HOME/.config/cwhip/settings.toml` when `XDG_CONFIG_HOME` is unset/empty.
 3. Normal CMake package discovery, including `CMAKE_PREFIX_PATH` and
    `Cwhip_DIR`, when neither selection is present.
 
@@ -21,6 +22,12 @@ For example, a shared user settings file can contain:
 ```toml
 sdk_prefix = "/absolute/path/to/installed/sdk"
 ```
+
+This matches the compiler installer's settings location. A non-empty
+`XDG_CONFIG_HOME` must be absolute and selects the only settings location:
+a missing file there does not fall back to the home settings file.
+If neither `XDG_CONFIG_HOME` nor `HOME` is available, the template retains
+normal CMake discovery. An explicit `CWHIP_SDK` bypasses config-home lookup.
 
 The value is the **whole installation prefix**, not its `bin/` directory or
 the CMake package directory. Paths with spaces and TOML-escaped quotes are

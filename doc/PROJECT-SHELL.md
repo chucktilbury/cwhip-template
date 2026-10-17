@@ -5,9 +5,11 @@ configure this project and start its interactive Bash shell. The script
 locates the project relative to itself, so it does not depend on the caller's
 current directory. The default build type is `debug`.
 
-SDK selection follows `CWHIP_SDK` (non-empty) >
-`$HOME/.config/cwhip/settings.toml` top-level `sdk_prefix` > normal CMake
-discovery. Reading an existing settings file requires Python 3.11+.
+SDK selection follows `CWHIP_SDK` (non-empty) > the user settings file's
+top-level `sdk_prefix` > normal CMake discovery. Settings live at
+`$XDG_CONFIG_HOME/cwhip/settings.toml`, falling back to
+`$HOME/.config/cwhip/settings.toml` only when `XDG_CONFIG_HOME` is unset/empty.
+Reading an existing settings file requires Python 3.11+.
 See [Building](BUILDING.md#select-an-sdk) for the settings format and errors.
 When settings select the SDK, setup exports that prefix as `CWHIP_SDK` to
 CMake and the child shell; it does not modify settings or the calling shell.

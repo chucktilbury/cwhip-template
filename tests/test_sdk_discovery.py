@@ -30,7 +30,7 @@ class SdkDiscoveryTests(unittest.TestCase):
         self.env = os.environ.copy()
         for name in (
             "CWHIP_SDK", "CMAKE_PREFIX_PATH", "Cwhip_DIR", "Cwhip_ROOT",
-            "_PROJECT_NAME",
+            "_PROJECT_NAME", "XDG_CONFIG_HOME",
         ):
             self.env.pop(name, None)
         self.env["HOME"] = str(self.home)
@@ -109,6 +109,71 @@ class SdkDiscoveryTests(unittest.TestCase):
         self.run_configure(extra=(
             f"-DCwhip_DIR={self.fallback / 'lib/cmake/Cwhip'}",
         ))
+        self.assert_selected(self.fallback)
+
+    def test_xdg_settings_win_over_home_settings(self):
+        self.select(self.make_sdk("home-sdk"))
+        home_settings = self.settings
+        home_content = home_settings.read_bytes()
+        config_home = self.root / 'XDG config with "quotes"'
+        self.env["XDG_CONFIG_HOME"] = str(config_home) + "/"
+        self.settings = config_home / "cwhip/settings.toml"
+        prefix = self.make_sdk("xdg-sdk")
+        self.select(prefix)
+        xdg_content = self.settings.read_bytes()
+        self.run_configure()
+        self.assert_selected(prefix)
+        self.run_configure(setup=True)
+        self.assert_selected(prefix)
+        self.assertEqual(self.shell_record.read_text(), str(prefix))
+        self.assertEqual(home_settings.read_bytes(), home_content)
+        self.assertEqual(self.settings.read_bytes(), xdg_content)
+
+    def test_empty_xdg_uses_home_settings(self):
+        self.env["XDG_CONFIG_HOME"] = ""
+        prefix = self.make_sdk("home-sdk")
+        self.select(prefix)
+        self.run_configure()
+        self.assert_selected(prefix)
+        self.run_configure(setup=True)
+        self.assert_selected(prefix)
+        self.assertEqual(self.shell_record.read_text(), str(prefix))
+
+    def test_missing_xdg_settings_do_not_fall_back_to_home_settings(self):
+        self.write_settings("not valid TOML\n")
+        self.env["XDG_CONFIG_HOME"] = str(self.root / "missing-config")
+        self.run_configure()
+        self.assert_selected(self.fallback)
+        self.run_configure(setup=True)
+        self.assert_selected(self.fallback)
+        self.assertEqual(self.shell_record.read_text(), "")
+
+    def test_relative_xdg_is_rejected_unless_explicit_sdk_is_set(self):
+        self.env["XDG_CONFIG_HOME"] = "relative-config"
+        self.assertIn("not absolute", self.run_configure(success=False))
+        self.assertIn("not absolute", self.run_configure(setup=True, success=False))
+        self.env["CWHIP_SDK"] = str(self.fallback)
+        self.run_configure()
+        self.assert_selected(self.fallback)
+        self.run_configure(setup=True)
+        self.assert_selected(self.fallback)
+
+    def test_xdg_settings_work_without_home(self):
+        self.env.pop("HOME")
+        self.env["XDG_CONFIG_HOME"] = str(self.root / "xdg-config")
+        self.settings = Path(self.env["XDG_CONFIG_HOME"]) / "cwhip/settings.toml"
+        prefix = self.make_sdk("xdg-sdk")
+        self.select(prefix)
+        self.run_configure()
+        self.assert_selected(prefix)
+        self.run_configure(setup=True)
+        self.assert_selected(prefix)
+
+    def test_no_config_home_preserves_normal_discovery(self):
+        self.env.pop("HOME")
+        self.run_configure()
+        self.assert_selected(self.fallback)
+        self.run_configure(setup=True)
         self.assert_selected(self.fallback)
 
     def test_settings_overrides_fallback_and_preserves_escaped_path(self):
