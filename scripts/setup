@@ -34,6 +34,17 @@ esac
 project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 build_dir="$project_root/build"
 
+settings="${HOME}/.config/cwhip/settings.toml"
+if [[ -z "${CWHIP_SDK:-}" && -e "$settings" ]]; then
+    if ! sdk_prefix="$(python3 "$project_root/scripts/sdk-prefix.py" "$settings")"; then
+        printf 'SDK settings discovery failed; project shell was not started.\n' >&2
+        exit 1
+    fi
+    if [[ -n "$sdk_prefix" ]]; then
+        export CWHIP_SDK="$sdk_prefix"
+    fi
+fi
+
 export _PROJECT_LOC="$project_root"
 export _PROJECT_NAME="$(basename -- "$project_root")"
 export _BUILD_TYPE="$build_type"

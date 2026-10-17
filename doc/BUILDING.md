@@ -7,20 +7,50 @@ installation that supports configurable application output directories.
 
 ## Select an SDK
 
-If the SDK is already discoverable via `CMAKE_PREFIX_PATH`, no extra setting
-is needed. Otherwise, point `CWHIP_SDK` at its whole installed prefix before
-configuring:
+Direct `cmake -S . -B build` and `scripts/setup` select the SDK in this exact
+order:
+
+1. An explicit, non-empty `CWHIP_SDK` environment variable.
+2. The top-level TOML string `sdk_prefix` in
+   `$HOME/.config/cwhip/settings.toml`.
+3. Normal CMake package discovery, including `CMAKE_PREFIX_PATH` and
+   `Cwhip_DIR`, when neither selection is present.
+
+For example, a shared user settings file can contain:
+
+```toml
+sdk_prefix = "/absolute/path/to/installed/sdk"
+```
+
+The value is the **whole installation prefix**, not its `bin/` directory or
+the CMake package directory. Paths with spaces and TOML-escaped quotes are
+preserved; TOML literal strings are also supported. A settings prefix must
+be a non-empty absolute path to an existing directory, without NUL or line
+breaks. Python 3.11+ (`tomllib`) is required only when reading an existing
+settings file; `scripts/setup` uses `python3`, while direct CMake configuration
+uses CMake's Python3 interpreter discovery.
+
+To temporarily override the shared setting:
 
 ```sh
-export CWHIP_SDK=/path/to/cwhip-sdk
+export CWHIP_SDK="/path/to/cwhip-sdk"
 ./scripts/setup
 ```
 
-When `CWHIP_SDK` is set, CMake searches only that prefix. Switching the
-environment variable also clears the previously cached `Cwhip_DIR`; an
-invalid explicit prefix fails configuration rather than silently selecting a
-different SDK. To use normal CMake discovery again, unset `CWHIP_SDK` and
-configure the project.
+An explicit non-empty `CWHIP_SDK` bypasses the settings file entirely, even
+if it is malformed. An unset or empty override allows settings discovery.
+A missing file or absent top-level key quietly leaves normal CMake discovery
+unchanged. Malformed TOML, an invalid value, or an unreadable settings file
+stops configuration with a diagnostic; it does not silently select another SDK.
+
+When either `CWHIP_SDK` or `sdk_prefix` selects a prefix, CMake searches only
+that prefix and clears the previously cached `Cwhip_DIR`. A prefix without a
+compatible Cwhip package fails configuration rather than falling back. To
+return to normal CMake discovery, unset `CWHIP_SDK` and remove the
+`sdk_prefix` setting (and clear `Cwhip_DIR` in an existing build cache if
+needed).
+
+The template never edits user settings or copies the SDK into the project.
 
 ## Configure and build
 
@@ -71,3 +101,16 @@ cmake --build build --target clean
 ```
 
 Rebuilding recreates the required output directories.
+
+## Test template discovery
+
+Run the discovery regression suite with Python 3.11+, CMake 3.24+, and a host
+C compiler:
+
+```sh
+python3 -m unittest discover -s tests -v
+```
+
+The suite uses temporary mock SDK packages and isolated home directories.
+It exercises real CMake configuration, setup's shell handoff, and the shell's
+SDK search path without requiring an installed CWhip compiler or user input.

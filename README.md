@@ -6,9 +6,12 @@ project's `bin/` directory.
 
 ## Get started
 
-Install the complete CWhip SDK prefix and its host prerequisites. If the SDK
-isn't discoverable through `CMAKE_PREFIX_PATH`, set `CWHIP_SDK` to the SDK's
-whole installation prefix. Then start the project shell and build:
+Install the complete CWhip SDK prefix and its host prerequisites. SDK selection
+uses a non-empty `CWHIP_SDK` override first, then the top-level `sdk_prefix`
+string in `$HOME/.config/cwhip/settings.toml`, then normal CMake discovery
+through `CMAKE_PREFIX_PATH` or `Cwhip_DIR`. Both direct CMake configuration and
+`scripts/setup` use this order. Reading settings requires Python 3.11+.
+Then start the project shell and build:
 
 ```sh
 ./scripts/setup
