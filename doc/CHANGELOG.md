@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add the standard MIT license.
 - Add a CWhip hello-world starter with a project setup script and interactive
   development shell.
 - Configure CMake to discover an installed CWhip 0.0.1 SDK, support explicit
