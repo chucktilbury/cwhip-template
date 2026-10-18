@@ -33,9 +33,12 @@ if(cwhip_sdk_prefix STREQUAL "")
         cmake_path(APPEND cwhip_config_home "cwhip"
             OUTPUT_VARIABLE cwhip_settings_directory)
         cmake_path(NORMAL_PATH cwhip_settings_directory)
-        set(cwhip_settings "${cwhip_settings_directory}/settings.toml")
         # EXISTS checks readability; listing lets the parser diagnose unreadable files.
         file(GLOB cwhip_settings_entries "${cwhip_settings_directory}/*")
+        set(cwhip_settings "${cwhip_settings_directory}/sdk.toml")
+        if(NOT "${cwhip_settings}" IN_LIST cwhip_settings_entries)
+            set(cwhip_settings "${cwhip_settings_directory}/settings.toml")
+        endif()
         if("${cwhip_settings}" IN_LIST cwhip_settings_entries)
             find_package(Python3 3.11 REQUIRED COMPONENTS Interpreter)
             execute_process(
