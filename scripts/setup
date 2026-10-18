@@ -44,8 +44,11 @@ if [[ -z "${CWHIP_SDK:-}" ]]; then
             "$config_home" >&2
         exit 1
     fi
-    settings="$config_home/cwhip/settings.toml"
-    if [[ -n "$config_home" && -e "$settings" ]]; then
+    settings="$config_home/cwhip/sdk.toml"
+    if [[ ! -e "$settings" && ! -L "$settings" ]]; then
+        settings="$config_home/cwhip/settings.toml"
+    fi
+    if [[ -n "$config_home" && ( -e "$settings" || -L "$settings" ) ]]; then
         if ! sdk_prefix="$(python3 "$project_root/scripts/sdk-prefix.py" "$settings")"; then
             printf 'SDK settings discovery failed; project shell was not started.\n' >&2
             exit 1

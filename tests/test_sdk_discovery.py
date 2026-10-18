@@ -26,6 +26,7 @@ class SdkDiscoveryTests(unittest.TestCase):
         self.home = self.root / "home"
         self.home.mkdir()
         self.settings = self.home / ".config/cwhip/settings.toml"
+        self.sdk_config = self.settings.with_name("sdk.toml")
         self.build = self.project / "build"
         self.env = os.environ.copy()
         for name in (
@@ -75,6 +76,13 @@ class SdkDiscoveryTests(unittest.TestCase):
     def select(self, prefix):
         self.write_settings(f"sdk_prefix = {json.dumps(str(prefix))}\n")
 
+    def write_sdk_config(self, content):
+        self.sdk_config.parent.mkdir(parents=True, exist_ok=True)
+        self.sdk_config.write_text(content)
+
+    def select_sdk(self, prefix):
+        self.write_sdk_config(f"sdk_prefix = {json.dumps(str(prefix))}\n")
+
     def run_configure(self, setup=False, success=True, extra=(), shell_input=None):
         if setup:
             command = ["/bin/bash", str(self.project / "scripts/setup"), *extra]
@@ -97,6 +105,128 @@ class SdkDiscoveryTests(unittest.TestCase):
 
     def assert_selected(self, prefix):
         self.assertEqual((self.build / "selected-sdk.txt").read_text(), str(prefix))
+
+    def test_sdk_config_survives_preferences_rewrite(self):
+        prefix = self.make_sdk('dedicated SDK with "quotes" ')
+        self.select_sdk(prefix)
+        before = self.sdk_config.read_bytes()
+        for preferences in (
+            f"sdk_prefix = {json.dumps(str(self.fallback))}\n",
+            '[editor]\ntheme = "dark"\n',
+            "not valid TOML\n",
+        ):
+            with self.subTest(preferences=preferences):
+                self.write_settings(preferences)
+                for setup in (False, True):
+                    self.run_configure(setup=setup)
+                    self.assert_selected(prefix)
+                    if setup:
+                        self.assertEqual(self.shell_record.read_text(), str(prefix))
+                self.assertEqual(self.sdk_config.read_bytes(), before)
+                self.assertEqual(self.settings.read_text(), preferences)
+
+    def test_sdk_config_missing_key_never_uses_legacy(self):
+        self.select(self.make_sdk("legacy"))
+        for content in ("", '[compiler]\nsdk_prefix = "/not/top-level"\n'):
+            with self.subTest(content=content):
+                self.write_sdk_config(content)
+                for setup in (False, True):
+                    self.run_configure(setup=setup)
+                    self.assert_selected(self.fallback)
+                    if setup:
+                        self.assertEqual(self.shell_record.read_text(), "")
+
+    def test_invalid_sdk_config_never_uses_legacy_or_cached_package(self):
+        self.select(self.fallback)
+        self.run_configure()
+        invalid = (
+            'sdk_prefix = "unterminated\n',
+            "sdk_prefix = 42\n",
+            'sdk_prefix = ""\n',
+            'sdk_prefix = "relative/sdk"\n',
+            'sdk_prefix = "/bad\\u0000path"\n',
+            'sdk_prefix = "/bad\\npath"\n',
+            'sdk_prefix = "/bad\\rpath"\n',
+            f"sdk_prefix = {json.dumps(str(self.root / 'missing'))}\n",
+            f"sdk_prefix = {json.dumps(str(self.project / 'CMakeLists.txt'))}\n",
+            f"sdk_prefix = {json.dumps(str(self.fallback))}\nsdk_prefix = 'duplicate'\n",
+        )
+        for content in invalid:
+            with self.subTest(content=content):
+                self.write_sdk_config(content)
+                for setup in (False, True):
+                    output = self.run_configure(setup=setup, success=False)
+                    self.assertIn("sdk.toml", output)
+                    self.assertIn("sdk_prefix", output)
+
+    def test_sdk_config_directory_or_broken_symlink_is_diagnosed(self):
+        self.select(self.fallback)
+        self.sdk_config.mkdir()
+        for setup in (False, True):
+            self.assertIn("sdk.toml", self.run_configure(setup=setup, success=False))
+        self.sdk_config.rmdir()
+        self.sdk_config.symlink_to(self.root / "missing-config")
+        for setup in (False, True):
+            self.assertIn("sdk.toml", self.run_configure(setup=setup, success=False))
+
+    def test_unreadable_sdk_config_never_uses_legacy(self):
+        self.select(self.fallback)
+        self.select_sdk(self.fallback)
+        self.sdk_config.chmod(0)
+        self.addCleanup(self.sdk_config.chmod, 0o600)
+        if os.access(self.sdk_config, os.R_OK):
+            self.skipTest("Current user can read mode-000 files")
+        for setup in (False, True):
+            self.assertIn("sdk.toml", self.run_configure(setup=setup, success=False))
+
+    def test_sdk_config_xdg_root_is_exclusive(self):
+        self.select_sdk(self.make_sdk("home-sdk"))
+        self.select(self.make_sdk("home-legacy"))
+        self.env["XDG_CONFIG_HOME"] = str(self.root / "XDG config with spaces") + "/"
+        self.sdk_config = Path(self.env["XDG_CONFIG_HOME"]) / "cwhip/sdk.toml"
+        for setup in (False, True):
+            self.run_configure(setup=setup)
+            self.assert_selected(self.fallback)
+        prefix = self.make_sdk("xdg-sdk")
+        self.select_sdk(prefix)
+        for setup in (False, True):
+            self.run_configure(setup=setup)
+            self.assert_selected(prefix)
+            if setup:
+                self.assertEqual(self.shell_record.read_text(), str(prefix))
+
+    def test_sdk_config_replaces_stale_cache_without_default_fallback(self):
+        self.run_configure()
+        prefix = self.make_sdk("dedicated-sdk")
+        self.select_sdk(prefix)
+        for setup in (False, True):
+            self.run_configure(setup=setup)
+            self.assert_selected(prefix)
+        self.shell_record.unlink()
+        self.select_sdk(self.home)
+        for setup in (False, True):
+            self.assertIn("Cwhip", self.run_configure(setup=setup, success=False))
+
+    def test_override_bypasses_both_config_files(self):
+        self.write_settings("not valid TOML\n")
+        self.write_sdk_config('sdk_prefix = ""\n')
+        self.env["CWHIP_SDK"] = str(self.fallback)
+        self.run_configure(extra=("-DCMAKE_DISABLE_FIND_PACKAGE_Python3=TRUE",))
+        self.assert_selected(self.fallback)
+        self.run_configure(setup=True)
+        self.assert_selected(self.fallback)
+        self.assertEqual(self.shell_record.read_text(), str(self.fallback))
+
+    def test_empty_override_and_xdg_allow_dedicated_literal_string(self):
+        self.env["CWHIP_SDK"] = ""
+        self.env["XDG_CONFIG_HOME"] = ""
+        prefix = self.make_sdk('literal SDK "quotes"')
+        self.write_sdk_config(f"# dedicated SDK\nsdk_prefix = '{prefix}' # prefix\n")
+        for setup in (False, True):
+            self.run_configure(setup=setup)
+            self.assert_selected(prefix)
+            if setup:
+                self.assertEqual(self.shell_record.read_text(), str(prefix))
 
     def test_missing_settings_preserves_prefix_discovery(self):
         self.run_configure(extra=("-DCMAKE_DISABLE_FIND_PACKAGE_Python3=TRUE",))
@@ -271,9 +401,9 @@ class SdkDiscoveryTests(unittest.TestCase):
         self.assertIn("CMAKE_BUILD_TYPE:STRING=Release", (self.build / "CMakeCache.txt").read_text())
         self.assertEqual(self.settings.read_bytes(), before)
 
-    def test_setup_real_shell_adds_settings_sdk_to_path(self):
+    def test_setup_real_shell_adds_dedicated_sdk_to_path(self):
         prefix = self.make_sdk('shell SDK with "quotes"')
-        self.select(prefix)
+        self.select_sdk(prefix)
         self.env["PATH"] = os.environ["PATH"]
         self.run_configure(
             setup=True,
