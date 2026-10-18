@@ -33,6 +33,8 @@ def main():
                 "sdk_prefix must be a non-empty absolute path to an existing SDK "
                 "installation directory (without NUL or line breaks)"
             )
+    except FileNotFoundError:
+        return 0
     except (OSError, ValueError) as error:
         print(f"{settings}: cannot read sdk_prefix: {error}", file=sys.stderr)
         return 1

@@ -2,15 +2,11 @@
 
 ## Unreleased
 
-- Separate SDK selection into `cwhip/sdk.toml` so editor/debugger preference
-  rewrites cannot erase it. Read legacy `settings.toml` only when the dedicated
-  file is absent, consistently in CMake and setup. Keep environment overrides,
-  strict validation, and explicit-prefix-only package discovery.
-- Retain compatibility with the whole installed SDK prefix from the top-level `sdk_prefix`
+- Discover the whole installed SDK prefix from the top-level `sdk_prefix`
   string in `$XDG_CONFIG_HOME/cwhip/settings.toml` (or
   `$HOME/.config/cwhip/settings.toml` when `XDG_CONFIG_HOME` is unset/empty)
-  in both CMake and setup when `sdk.toml` is absent.
-  Preserve precedence: non-empty `CWHIP_SDK` > SDK config (or legacy settings) > normal CMake
+  in both CMake and setup.
+  Preserve precedence: non-empty `CWHIP_SDK` > settings > normal CMake
   discovery. Parse TOML with Python 3.11+ without evaluating or modifying
   user settings, and reject invalid selections without falling back.
 - Export a settings-selected SDK to the setup shell and add regression
