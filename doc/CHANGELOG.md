@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Inherit application install-prefix and build-type defaults registered by the
+  Cwhip SDK, while preserving explicit CMake settings and existing cache
+  values. Setup's optional build-type argument is now an explicit override.
 - Separate SDK selection into `cwhip/sdk.toml` so editor/debugger preference
   rewrites cannot erase it. Read legacy `settings.toml` only when the dedicated
   file is absent, consistently in CMake and setup. Keep environment overrides,
@@ -25,5 +28,5 @@
   commands.
 
 The starter requires a CWhip SDK that provides configurable application
-output directories. SDKs without the `Cwhip_APPLICATION_OUTPUT_DIRECTORIES`
-capability are rejected during configuration.
+output directories and `cwhip_apply_application_defaults()`. SDKs without
+these capabilities are rejected during configuration.

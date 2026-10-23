@@ -3,7 +3,9 @@
 Run `scripts/setup [debug|release|profile]` from any working directory to
 configure this project and start its interactive Bash shell. The script
 locates the project relative to itself, so it does not depend on the caller's
-current directory. The default build type is `debug`.
+current directory. Without an argument, the configured build type is inherited
+from the SDK application default or the existing build cache. An explicit
+argument overrides it.
 
 SDK selection follows `CWHIP_SDK` (non-empty) > the dedicated SDK file's
 top-level `sdk_prefix` > normal CMake discovery. SDK configuration lives at
@@ -35,8 +37,8 @@ The shell exports:
 | --- | --- |
 | `_PROJECT_NAME` | Project directory name |
 | `_PROJECT_LOC` | Absolute project root |
-| `_BUILD_TYPE` | Selected lowercase type: `debug`, `release`, or `profile` |
-| `CWHIP_BUILD_TYPE` | Corresponding CMake type: `Debug`, `Release`, or `RelWithDebInfo` |
+| `_BUILD_TYPE` | Lowercase configured type (`debug`, `release`, or `profile` for the standard configurations; `default` if unset) |
+| `CWHIP_BUILD_TYPE` | Configured CMake build type, or empty if unset |
 
 Convenience commands operate on the project repository:
 

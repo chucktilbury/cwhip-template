@@ -64,6 +64,13 @@ else()
     find_package(Cwhip 0.0.1 EXACT CONFIG REQUIRED)
 endif()
 
+if(NOT COMMAND cwhip_apply_application_defaults)
+    message(FATAL_ERROR
+        "The selected Cwhip SDK does not provide application install/build defaults. "
+        "Install an SDK that provides cwhip_apply_application_defaults().")
+endif()
+cwhip_apply_application_defaults()
+
 if(NOT Cwhip_APPLICATION_OUTPUT_DIRECTORIES)
     message(FATAL_ERROR
         "The selected Cwhip SDK does not support configurable application output directories. "
