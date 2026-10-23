@@ -81,12 +81,13 @@ The template never edits user settings or copies the SDK into the project.
 
 ## Application defaults
 
-After finding the Cwhip package, the template calls
-`cwhip_apply_application_defaults()` from the selected SDK. The helper seeds
-`CMAKE_INSTALL_PREFIX` and `CMAKE_BUILD_TYPE` from the `[applications]` values
-in `sdk.toml` only when the corresponding CMake value is unset or still at its
-default. Explicit `-D` options and non-default values already in the build
-cache take precedence.
+Before enabling project languages, the template finds the Cwhip package and
+calls `cwhip_apply_application_defaults()` from the selected SDK. This lets
+the SDK distinguish unset cache entries from explicit values, including
+explicit empty values. The helper seeds `CMAKE_INSTALL_PREFIX` and
+`CMAKE_BUILD_TYPE` from the `[applications]` values in `sdk.toml` only when
+the corresponding cache entry is absent; explicit `-D` options, environment
+overrides, and all existing cache values take precedence.
 
 Running `scripts/setup` without an argument preserves an existing build type
 or inherits the SDK's registered default. An explicit `debug`, `release`, or
