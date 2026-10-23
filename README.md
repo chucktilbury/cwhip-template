@@ -22,10 +22,11 @@ cmake --build .
 ../bin/hello
 ```
 
-The default build type is `debug`. Choose `release` or `profile` with
-`./scripts/setup release` or `./scripts/setup profile`.
+With no setup argument, the project inherits the SDK's registered application
+build type when available. Pass `debug`, `release`, or `profile` to explicitly
+select a build type, for example `./scripts/setup release`.
 
 See [Building](doc/BUILDING.md) for SDK selection and output-directory
-customization, and [Project shell](doc/PROJECT-SHELL.md) for the shell
-environment and available commands. See the [changelog](doc/CHANGELOG.md) for
-template updates.
+customization and application defaults, and [Project shell](doc/PROJECT-SHELL.md)
+for the shell environment and available commands. See the
+[changelog](doc/CHANGELOG.md) for template updates.

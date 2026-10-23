@@ -42,11 +42,15 @@ class SdkDiscoveryTests(unittest.TestCase):
         tools.mkdir()
         shell = tools / "bash"
         shell.write_text(
-            '#!/bin/sh\nprintf "%s" "${CWHIP_SDK-}" > "$SHELL_RECORD"\n'
+            '#!/bin/sh\n'
+            'printf "%s" "${CWHIP_SDK-}" > "$SHELL_RECORD"\n'
+            'printf "%s" "${CWHIP_BUILD_TYPE-}" > "$SHELL_BUILD_TYPE_RECORD"\n'
         )
         shell.chmod(0o755)
         self.env["PATH"] = f"{tools}:{self.env['PATH']}"
         self.env["SHELL_RECORD"] = str(self.shell_record)
+        self.shell_build_type_record = self.root / "shell-build-type.txt"
+        self.env["SHELL_BUILD_TYPE_RECORD"] = str(self.shell_build_type_record)
 
     def make_sdk(self, name):
         prefix = self.root / name
@@ -61,11 +65,30 @@ class SdkDiscoveryTests(unittest.TestCase):
             '    set_target_properties("${name}" PROPERTIES\n'
             '        CWHIP_EXECUTABLE "${CMAKE_BINARY_DIR}/hello")\n'
             'endfunction()\n'
+            'include("${CMAKE_CURRENT_LIST_DIR}/CwhipApplicationDefaults.cmake")\n'
         )
         (package / "CwhipConfigVersion.cmake").write_text(
             'set(PACKAGE_VERSION "0.0.1")\n'
             'set(PACKAGE_VERSION_COMPATIBLE TRUE)\n'
             'set(PACKAGE_VERSION_EXACT TRUE)\n'
+        )
+        install_prefix = self.root / "registered-install"
+        (package / "CwhipApplicationDefaults.cmake").write_text(
+            "function(cwhip_apply_application_defaults)\n"
+            '    if(NOT DEFINED CMAKE_INSTALL_PREFIX AND "$ENV{CMAKE_INSTALL_PREFIX}" STREQUAL "")\n'
+            f'        set(CMAKE_INSTALL_PREFIX "{install_prefix}" CACHE PATH "" FORCE)\n'
+            "    endif()\n"
+            "    get_property(build_type_cached CACHE CMAKE_BUILD_TYPE PROPERTY TYPE SET)\n"
+            '    if(NOT build_type_cached AND NOT CMAKE_CONFIGURATION_TYPES AND (NOT DEFINED CMAKE_BUILD_TYPE OR "${CMAKE_BUILD_TYPE}" STREQUAL ""))\n'
+            "        if(DEFINED ENV{CMAKE_BUILD_TYPE})\n"
+            '            set(build_type_default "$ENV{CMAKE_BUILD_TYPE}")\n'
+            "        else()\n"
+            '            set(build_type_default "Release")\n'
+            "        endif()\n"
+            '        set(CMAKE_BUILD_TYPE "${build_type_default}" CACHE STRING "" FORCE)\n'
+            '        set(CMAKE_BUILD_TYPE "${build_type_default}" PARENT_SCOPE)\n'
+            "    endif()\n"
+            "endfunction()\n"
         )
         return prefix
 
@@ -105,6 +128,76 @@ class SdkDiscoveryTests(unittest.TestCase):
 
     def assert_selected(self, prefix):
         self.assertEqual((self.build / "selected-sdk.txt").read_text(), str(prefix))
+
+    def test_application_defaults_seed_install_prefix_and_build_type(self):
+        self.run_configure()
+        cache = (self.build / "CMakeCache.txt").read_text()
+        self.assertIn(f"CMAKE_INSTALL_PREFIX:PATH={self.root}/registered-install", cache)
+        self.assertIn("CMAKE_BUILD_TYPE:STRING=Release", cache)
+
+    def test_explicit_cmake_settings_override_application_defaults(self):
+        install_prefix = self.root / "explicit-install"
+        self.run_configure(extra=(
+            "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
+            f"-DCMAKE_INSTALL_PREFIX={install_prefix}",
+        ))
+        cache = (self.build / "CMakeCache.txt").read_text()
+        self.assertIn("CMAKE_BUILD_TYPE:STRING=RelWithDebInfo", cache)
+        self.assertIn(f"CMAKE_INSTALL_PREFIX:PATH={install_prefix}", cache)
+
+    def test_existing_cache_settings_override_application_defaults(self):
+        install_prefix = self.root / "cached-install"
+        self.run_configure(extra=(
+            "-DCMAKE_BUILD_TYPE=Debug",
+            f"-DCMAKE_INSTALL_PREFIX={install_prefix}",
+        ))
+        self.run_configure()
+        cache = (self.build / "CMakeCache.txt").read_text()
+        self.assertIn("CMAKE_BUILD_TYPE:STRING=Debug", cache)
+        self.assertIn(f"CMAKE_INSTALL_PREFIX:PATH={install_prefix}", cache)
+
+    def test_explicit_empty_build_type_is_preserved(self):
+        self.run_configure(extra=("-DCMAKE_BUILD_TYPE=",))
+        self.assertIn(
+            "CMAKE_BUILD_TYPE:STRING=\n",
+            (self.build / "CMakeCache.txt").read_text(),
+        )
+
+    def test_existing_empty_build_type_cache_is_preserved(self):
+        self.run_configure(extra=("-DCMAKE_BUILD_TYPE=",))
+        self.run_configure()
+        self.assertIn(
+            "CMAKE_BUILD_TYPE:STRING=\n",
+            (self.build / "CMakeCache.txt").read_text(),
+        )
+
+    def test_install_prefix_environment_override_is_preserved(self):
+        install_prefix = self.root / "environment-install"
+        self.env["CMAKE_INSTALL_PREFIX"] = str(install_prefix)
+        self.env["CMAKE_BUILD_TYPE"] = "Debug"
+        self.run_configure()
+        cache = (self.build / "CMakeCache.txt").read_text()
+        self.assertIn(f"CMAKE_INSTALL_PREFIX:PATH={install_prefix}", cache)
+        self.assertIn("CMAKE_BUILD_TYPE:STRING=Debug", cache)
+
+    def test_setup_implicit_build_type_uses_application_default(self):
+        self.run_configure(setup=True)
+        cache = (self.build / "CMakeCache.txt").read_text()
+        self.assertIn("CMAKE_BUILD_TYPE:STRING=Release", cache)
+        self.assertEqual(self.shell_build_type_record.read_text(), "Release")
+
+    def test_setup_explicit_build_type_overrides_application_default(self):
+        self.run_configure(setup=True, extra=("profile",))
+        cache = (self.build / "CMakeCache.txt").read_text()
+        self.assertIn("CMAKE_BUILD_TYPE:STRING=RelWithDebInfo", cache)
+        self.assertEqual(self.shell_build_type_record.read_text(), "RelWithDebInfo")
+
+    def test_setup_without_argument_preserves_existing_build_type(self):
+        self.run_configure(extra=("-DCMAKE_BUILD_TYPE=Debug",))
+        self.run_configure(setup=True)
+        cache = (self.build / "CMakeCache.txt").read_text()
+        self.assertIn("CMAKE_BUILD_TYPE:STRING=Debug", cache)
+        self.assertEqual(self.shell_build_type_record.read_text(), "Debug")
 
     def test_sdk_config_survives_preferences_rewrite(self):
         prefix = self.make_sdk('dedicated SDK with "quotes" ')

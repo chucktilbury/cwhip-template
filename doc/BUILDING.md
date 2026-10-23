@@ -3,7 +3,8 @@
 This starter consumes the installed CWhip SDK; it does not build or download
 the compiler or SDK for you. Use the complete SDK installation prefix, not
 just its `bin/` directory. CMake requires SDK version `0.0.1` and an
-installation that supports configurable application output directories.
+installation that supports configurable application output directories and
+provides `cwhip_apply_application_defaults()`.
 
 ## Select an SDK
 
@@ -23,6 +24,10 @@ For example, the dedicated SDK configuration file `cwhip/sdk.toml` can contain:
 
 ```toml
 sdk_prefix = "/absolute/path/to/installed/sdk"
+
+[applications]
+install_prefix = "/absolute/path/to/common/application/install"
+build_type = "Release"
 ```
 
 This matches the compiler installer's SDK registration location and keeps SDK
@@ -33,13 +38,20 @@ a missing file there does not fall back to the home settings file.
 If neither `XDG_CONFIG_HOME` nor `HOME` is available, the template retains
 normal CMake discovery. An explicit `CWHIP_SDK` bypasses config-home lookup.
 
-The value is the **whole installation prefix**, not its `bin/` directory or
-the CMake package directory. Paths with spaces and TOML-escaped quotes are
-preserved; TOML literal strings are also supported. A settings prefix must
-be a non-empty absolute path to an existing directory, without NUL or line
-breaks. Python 3.11+ (`tomllib`) is required only when reading an existing
-settings file; `scripts/setup` uses `python3`, while direct CMake configuration
-uses CMake's Python3 interpreter discovery.
+The Cwhip installer records `[applications].install_prefix` and
+`[applications].build_type` in `sdk.toml` after a successful install that is
+not using `DESTDIR`. The install prefix is the common, non-`DESTDIR`
+application install location; the build type is the CMake configuration used
+for the SDK. A staged `DESTDIR` install does not register staged paths as
+defaults.
+
+The top-level `sdk_prefix` is the **whole SDK installation prefix**, not its
+`bin/` directory or the CMake package directory. Paths with spaces and
+TOML-escaped quotes are preserved; TOML literal strings are also supported.
+A settings prefix must be a non-empty absolute path to an existing directory,
+without NUL or line breaks. Python 3.11+ (`tomllib`) is required only when
+reading an existing settings file; `scripts/setup` uses `python3`, while
+direct CMake configuration uses CMake's Python3 interpreter discovery.
 
 To temporarily override the shared setting:
 
@@ -67,14 +79,32 @@ needed.
 
 The template never edits user settings or copies the SDK into the project.
 
+## Application defaults
+
+Before enabling project languages, the template finds the Cwhip package and
+calls `cwhip_apply_application_defaults()` from the selected SDK. This lets
+the SDK distinguish unset cache entries from explicit values, including
+explicit empty values. The helper seeds `CMAKE_INSTALL_PREFIX` and
+`CMAKE_BUILD_TYPE` from the `[applications]` values in `sdk.toml` only when
+the corresponding cache entry is absent; explicit `-D` options, environment
+overrides, and all existing cache values take precedence.
+
+Running `scripts/setup` without an argument preserves an existing build type
+or inherits the SDK's registered default. An explicit `debug`, `release`, or
+`profile` argument supplies `Debug`, `Release`, or `RelWithDebInfo` and
+overrides the build type for that configure. Direct CMake configuration uses
+the same SDK defaults and respects its normal explicit/cache precedence. The
+helper does not create a shared build directory or supply arbitrary compiler
+flags.
+
 ## Configure and build
 
 The setup script configures the `build/` directory and launches an interactive
-project shell there. Its build type argument is optional:
+project shell there. Its optional build type argument is an explicit override:
 
 | Argument | CMake build type |
 | --- | --- |
-| `debug` (default) | `Debug` |
+| `debug` | `Debug` |
 | `release` | `Release` |
 | `profile` | `RelWithDebInfo` |
 
