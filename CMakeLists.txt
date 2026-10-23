@@ -46,9 +46,18 @@ else()
 endif()
 
 if(NOT COMMAND cwhip_apply_application_defaults)
+    if(DEFINED Cwhip_PREFIX AND NOT Cwhip_PREFIX STREQUAL "")
+        set(cwhip_sdk_location "at prefix '${Cwhip_PREFIX}'")
+    elseif(NOT cwhip_sdk_prefix STREQUAL "")
+        set(cwhip_sdk_location "at prefix '${cwhip_sdk_prefix}'")
+    else()
+        set(cwhip_sdk_location "with package directory '${Cwhip_DIR}'")
+    endif()
     message(FATAL_ERROR
-        "The selected Cwhip SDK does not provide application install/build defaults. "
-        "Install an SDK that provides cwhip_apply_application_defaults().")
+        "The selected Cwhip SDK ${cwhip_sdk_location} is missing the "
+        "application-defaults capability: cwhip_apply_application_defaults(). "
+        "Rebuild and reinstall an updated Cwhip SDK, then configure this project again. "
+        "Updating the Cwhip source checkout alone does not update the installed SDK.")
 endif()
 cwhip_apply_application_defaults()
 

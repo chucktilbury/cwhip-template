@@ -58,6 +58,7 @@ class SdkDiscoveryTests(unittest.TestCase):
         package.mkdir(parents=True)
         (package / "CwhipConfig.cmake").write_text(
             'get_filename_component(prefix "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)\n'
+            'set(Cwhip_PREFIX "${prefix}")\n'
             'file(WRITE "${CMAKE_BINARY_DIR}/selected-sdk.txt" "${prefix}")\n'
             'set(Cwhip_APPLICATION_OUTPUT_DIRECTORIES TRUE)\n'
             'function(cwhip_add_program name)\n'
@@ -134,6 +135,32 @@ class SdkDiscoveryTests(unittest.TestCase):
         cache = (self.build / "CMakeCache.txt").read_text()
         self.assertIn(f"CMAKE_INSTALL_PREFIX:PATH={self.root}/registered-install", cache)
         self.assertIn("CMAKE_BUILD_TYPE:STRING=Release", cache)
+
+    def test_legacy_sdk_without_defaults_reports_actionable_error(self):
+        package = self.fallback / "lib/cmake/Cwhip"
+        config = package / "CwhipConfig.cmake"
+        legacy_config = config.read_text().replace(
+            'include("${CMAKE_CURRENT_LIST_DIR}/CwhipApplicationDefaults.cmake")\n',
+            "",
+        )
+        (package / "CwhipApplicationDefaults.cmake").unlink()
+        for selection in ("package-prefix", "explicit-prefix", "package-directory"):
+            config.write_text(
+                legacy_config if selection == "package-prefix" else
+                legacy_config.replace('set(Cwhip_PREFIX "${prefix}")\n', "")
+            )
+            if selection == "explicit-prefix":
+                self.env["CWHIP_SDK"] = str(self.fallback)
+            else:
+                self.env.pop("CWHIP_SDK", None)
+            for setup in (False, True):
+                with self.subTest(selection=selection, setup=setup):
+                    output = self.run_configure(setup=setup, success=False)
+                    self.assertIn(str(self.fallback), output)
+                    self.assertIn("application-defaults capability", output)
+                    self.assertIn("cwhip_apply_application_defaults()", output)
+                    self.assertIn("Rebuild and reinstall an updated Cwhip SDK", output)
+                    self.assertNotIn("Unknown CMake command", output)
 
     def test_explicit_cmake_settings_override_application_defaults(self):
         install_prefix = self.root / "explicit-install"
