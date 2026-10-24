@@ -39,10 +39,18 @@ if(NOT cwhip_sdk_prefix STREQUAL "")
     message(STATUS "Using Cwhip SDK prefix: ${cwhip_sdk_prefix}")
     unset(Cwhip_DIR CACHE)
     unset(Cwhip_DIR)
-    find_package(Cwhip 0.0.1 EXACT CONFIG REQUIRED
+    find_package(Cwhip 0.0.2 EXACT CONFIG REQUIRED
         PATHS "${cwhip_sdk_prefix}" NO_DEFAULT_PATH)
 else()
-    find_package(Cwhip 0.0.1 EXACT CONFIG REQUIRED)
+    find_package(Cwhip 0.0.2 EXACT CONFIG REQUIRED)
+endif()
+
+if(NOT "${Cwhip_SDK_ABI}" STREQUAL "numeric-v2")
+    message(FATAL_ERROR
+        "The selected Cwhip SDK at '${Cwhip_DIR}' has incompatible SDK ABI "
+        "'${Cwhip_SDK_ABI}'; this template requires Cwhip 0.0.2 with numeric-v2. "
+        "Rebuild and reinstall the numeric-v2 SDK and all native packages, "
+        "then configure again. Updating source or package metadata alone is not sufficient.")
 endif()
 
 if(NOT COMMAND cwhip_apply_application_defaults)

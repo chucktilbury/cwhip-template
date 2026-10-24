@@ -2,17 +2,48 @@
 
 This starter consumes the installed CWhip SDK; it does not build or download
 the compiler or SDK for you. Use the complete SDK installation prefix, not
-just its `bin/` directory. CMake requires SDK version `0.0.1` and an
+just its `bin/` directory. CMake requires SDK version `0.0.2` (exactly), its
+`Cwhip_SDK_ABI` identifier must be `numeric-v2`, and it must be an
 installation that supports configurable application output directories and
 provides `cwhip_apply_application_defaults()`.
 
 If configuration reports a missing application-defaults capability, rebuild
 and reinstall an updated Cwhip SDK at the prefix shown in the error, then
 configure again. Updating or merging the Cwhip source checkout alone does not
-update an existing SDK installation, even if its version is still `0.0.1`.
+update an existing SDK installation.
 Alternatively, select an already updated installation with `CWHIP_SDK`.
 The template rejects older SDKs rather than silently omitting application
 defaults.
+
+## Numeric-v2 migration
+
+This template depends on the numeric execution work in
+[chucktilbury/cwhip#25](https://github.com/chucktilbury/cwhip/pull/25) and the
+subsequent numeric-v2 SDK/package migration. Until that SDK is published, use
+an explicitly selected rebuilt development SDK; the old installed SDK is not
+compatible. The hello-world starter has no numeric declarations, native
+examples, or checked-in package manifests to migrate.
+
+For applications derived from the template, replace removed Cwhip types `int`,
+`unsigned`, and `float` with `int64`, `uint64`, and `fp64` where preserving the
+old width is intended. All fixed-width types are supported: `int8/16/32/64`,
+`uint8/16/32/64`, and `fp32/64`. String parsers are now `toInt8/16/32/64`,
+`toUint8/16/32/64`, and `toFp32/64`. These slash-separated names describe
+individual methods, such as `toInt64()` and `toFp64()`.
+
+Integer literals now start at the smallest fitting width, and unsuffixed
+floating literals start at fp32. Widen operands before arithmetic when needed:
+`int64(127) + 1` avoids the int8 overflow in `127 + 1`, while `0.1f64`
+preserves fp64 literal precision rather than widening an already rounded
+fp32 value. Destination types do not widen intermediate expressions.
+
+Rebuild every native module against the new SDK using the matching exact-width
+C types (and `float`/`double` for fp32/fp64); C itself still uses C type names.
+Only after rebuilding, declare `sdk-abi = "numeric-v2"` in each package's
+`[package]` table in `cwhip-package.toml`. The SDK rejects missing or stale
+package ABI metadata. The SDK application helper generates project metadata
+and a lockfile in the build tree using its own package tool; do not copy an old
+generated project or relabel stale native artifacts.
 
 ## Select an SDK
 
@@ -167,3 +198,17 @@ python3 -m unittest discover -s tests -v
 The suite uses temporary mock SDK packages and isolated home directories.
 It exercises real CMake configuration, setup's shell handoff, and the shell's
 SDK search path without requiring an installed CWhip compiler or user input.
+It also rejects old/newer SDK versions and missing or incompatible ABI markers
+before setup can enter a project shell.
+
+To additionally build and install a temporary copy of the starter, execute both
+its built and installed hello-world binaries, and check generated package ABI
+metadata and stale-package rejection against a real SDK:
+
+```sh
+CWHIP_TEST_SDK=/absolute/path/to/numeric-v2/sdk \
+  python3 -m unittest discover -s tests -v
+```
+
+This opt-in check uses a private temporary install prefix and isolated home
+and XDG directories. It does not write to the SDK or user configuration.
