@@ -101,7 +101,8 @@ class SdkIntegrationTests(unittest.TestCase):
                     "init", str(project), success=False,
                 )
                 output = result.stdout + result.stderr
-                self.assertIn("SDK1001", output)
+                self.assertIn("error[PKG2004]", output)
+                self.assertIn("incompatible package SDK ABI", output)
                 self.assertIn("numeric-v2", output)
                 self.assertFalse((project / "cwhip-pkg.toml").exists())
                 self.assertFalse((project / "cwhip-pkg.lock").exists())
