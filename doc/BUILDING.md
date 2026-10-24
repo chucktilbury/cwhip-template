@@ -6,6 +6,14 @@ just its `bin/` directory. CMake requires SDK version `0.0.1` and an
 installation that supports configurable application output directories and
 provides `cwhip_apply_application_defaults()`.
 
+If configuration reports a missing application-defaults capability, rebuild
+and reinstall an updated Cwhip SDK at the prefix shown in the error, then
+configure again. Updating or merging the Cwhip source checkout alone does not
+update an existing SDK installation, even if its version is still `0.0.1`.
+Alternatively, select an already updated installation with `CWHIP_SDK`.
+The template rejects older SDKs rather than silently omitting application
+defaults.
+
 ## Select an SDK
 
 Direct `cmake -S . -B build` and `scripts/setup` select the SDK in this exact
