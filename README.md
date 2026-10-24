@@ -6,7 +6,10 @@ project's `bin/` directory.
 
 ## Get started
 
-Install the complete CWhip SDK prefix and its host prerequisites. SDK selection
+Install the complete CWhip **0.0.2 SDK with the `numeric-v2` ABI** and its host
+prerequisites. Older SDKs and missing/mismatched ABI identifiers are rejected.
+Rebuild native packages against this SDK before using them; changing their
+metadata alone does not migrate their ABI. SDK selection
 uses a non-empty `CWHIP_SDK` override first, then the top-level `sdk_prefix`
 string in `$XDG_CONFIG_HOME/cwhip/sdk.toml` (or
 `$HOME/.config/cwhip/sdk.toml` when `XDG_CONFIG_HOME` is unset/empty).

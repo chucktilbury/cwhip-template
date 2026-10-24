@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Require Cwhip SDK 0.0.2 and its `numeric-v2` ABI; reject missing or
+  incompatible SDK markers before applying application defaults. Update mock
+  SDKs, add version/ABI rejection coverage and an opt-in real-SDK private
+  build/install check, and document source and native-package migration.
 - Inherit application install-prefix and build-type defaults registered by the
   Cwhip SDK, while preserving explicit CMake settings and existing cache
   values. Setup's optional build-type argument is now an explicit override.

@@ -52,7 +52,7 @@ class SdkDiscoveryTests(unittest.TestCase):
         self.shell_build_type_record = self.root / "shell-build-type.txt"
         self.env["SHELL_BUILD_TYPE_RECORD"] = str(self.shell_build_type_record)
 
-    def make_sdk(self, name):
+    def make_sdk(self, name, *, version="0.0.2", abi="numeric-v2"):
         prefix = self.root / name
         package = prefix / "lib/cmake/Cwhip"
         package.mkdir(parents=True)
@@ -67,11 +67,17 @@ class SdkDiscoveryTests(unittest.TestCase):
             '        CWHIP_EXECUTABLE "${CMAKE_BINARY_DIR}/hello")\n'
             'endfunction()\n'
             'include("${CMAKE_CURRENT_LIST_DIR}/CwhipApplicationDefaults.cmake")\n'
+            + (f'set(Cwhip_SDK_ABI "{abi}")\n' if abi is not None else "")
         )
         (package / "CwhipConfigVersion.cmake").write_text(
-            'set(PACKAGE_VERSION "0.0.1")\n'
-            'set(PACKAGE_VERSION_COMPATIBLE TRUE)\n'
-            'set(PACKAGE_VERSION_EXACT TRUE)\n'
+            f'set(PACKAGE_VERSION "{version}")\n'
+            'if(PACKAGE_FIND_VERSION VERSION_EQUAL PACKAGE_VERSION)\n'
+            '    set(PACKAGE_VERSION_COMPATIBLE TRUE)\n'
+            '    set(PACKAGE_VERSION_EXACT TRUE)\n'
+            'else()\n'
+            '    set(PACKAGE_VERSION_COMPATIBLE FALSE)\n'
+            '    set(PACKAGE_VERSION_EXACT FALSE)\n'
+            'endif()\n'
         )
         install_prefix = self.root / "registered-install"
         (package / "CwhipApplicationDefaults.cmake").write_text(
@@ -135,6 +141,32 @@ class SdkDiscoveryTests(unittest.TestCase):
         cache = (self.build / "CMakeCache.txt").read_text()
         self.assertIn(f"CMAKE_INSTALL_PREFIX:PATH={self.root}/registered-install", cache)
         self.assertIn("CMAKE_BUILD_TYPE:STRING=Release", cache)
+
+    def test_incompatible_sdk_version_never_falls_back_or_opens_shell(self):
+        self.run_configure()
+        for version in ("0.0.1", "0.0.3"):
+            prefix = self.make_sdk(f"version-{version}", version=version)
+            self.env["CWHIP_SDK"] = str(prefix)
+            for setup in (False, True):
+                with self.subTest(version=version, setup=setup):
+                    output = self.run_configure(setup=setup, success=False)
+                    self.assertIn("0.0.2", output)
+                    self.assertIn(str(prefix), output)
+                    self.assert_selected(self.fallback)
+
+    def test_incompatible_sdk_abi_never_falls_back_or_opens_shell(self):
+        self.run_configure()
+        for abi in (None, "", "legacy-v1"):
+            prefix = self.make_sdk(f"abi-{abi}", abi=abi)
+            self.env["CWHIP_SDK"] = str(prefix)
+            for setup in (False, True):
+                with self.subTest(abi=abi, setup=setup):
+                    output = self.run_configure(setup=setup, success=False)
+                    self.assertIn("incompatible SDK ABI", output)
+                    self.assertIn("numeric-v2", output)
+                    self.assertIn(str(prefix), output)
+                    self.assertIn("Rebuild and reinstall", output)
+                    self.assert_selected(prefix)
 
     def test_legacy_sdk_without_defaults_reports_actionable_error(self):
         package = self.fallback / "lib/cmake/Cwhip"
