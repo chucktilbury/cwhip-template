@@ -10,6 +10,24 @@ if [[ -n "${CWHIP_SDK:-}" ]]; then
 fi
 export PATH="$project_path:$PATH"
 
+build() {
+    local dir="${_PROJECT_BUILD_DIR:-$_PROJECT_LOC/build}"
+    if (( $# )); then
+        cmake --build "$dir" --parallel 12 --target "$@"
+    else
+        cmake --build "$dir" --parallel 12
+    fi
+}
+
+rebuild() {
+    local dir="${_PROJECT_BUILD_DIR:-$_PROJECT_LOC/build}"
+    if (( $# )); then
+        cmake --build "$dir" --parallel 12 --clean-first --target "$@"
+    else
+        cmake --build "$dir" --parallel 12 --clean-first
+    fi
+}
+
 status() {
     git -C "$_PROJECT_LOC" status "$@"
 }

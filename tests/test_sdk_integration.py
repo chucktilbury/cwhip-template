@@ -25,6 +25,7 @@ class SdkIntegrationTests(unittest.TestCase):
             "CMAKE_PREFIX_PATH", "Cwhip_DIR", "Cwhip_ROOT", "CWHIP_MODULE_DIR",
             "CWHIP_PACKAGE_PATH", "CWHIP_MODULE_REGISTRY", "DESTDIR",
             "XDG_RUNTIME_DIR", "CMAKE_BUILD_TYPE", "CMAKE_INSTALL_PREFIX",
+            "_PROJECT_NAME", "_PROJECT_BUILD_DIR",
         ):
             self.env.pop(name, None)
         for name in ("HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME"):
@@ -36,12 +37,13 @@ class SdkIntegrationTests(unittest.TestCase):
             CWHIP_HOME=str(self.sdk),
             CWHIP_STDLIB_MODULE_DIR=str(self.sdk / "share/cwhip/modules"),
             PYTHONDONTWRITEBYTECODE="1",
+            CWHIP_REGISTER_SDK="OFF",
         )
 
-    def run_command(self, *command, success=True):
+    def run_command(self, *command, success=True, shell_input=None):
         result = subprocess.run(
             command, cwd=self.root, env=self.env, capture_output=True,
-            text=True, timeout=180,
+            text=True, timeout=180, input=shell_input,
         )
         output = result.stdout + result.stderr
         if success:
@@ -49,6 +51,39 @@ class SdkIntegrationTests(unittest.TestCase):
         else:
             self.assertNotEqual(result.returncode, 0, output)
         return result
+
+    def test_setup_clean_build_and_rebuild_in_project_shell(self):
+        project = self.root / "project with spaces"
+        project.mkdir()
+        for name in ("CMakeLists.txt", ".project_env"):
+            shutil.copy2(ROOT / name, project)
+        for name in ("src", "scripts", "tests"):
+            shutil.copytree(ROOT / name, project / name)
+        for name in ("bin", "build", "lib", "doc/out", "share"):
+            directory = project / name
+            directory.mkdir(parents=True, exist_ok=True)
+            (directory / "stale-output").touch()
+        source = (project / "src/main.cw").read_bytes()
+        result = self.run_command(
+            "/bin/bash", str(project / "scripts/setup"), "--clean", "release",
+            shell_input=(
+                'set -e\n'
+                'declare -F build rebuild\n'
+                'cd "$HOME"\n'
+                'build hello\n'
+                '"$_PROJECT_LOC/bin/hello"\n'
+                'rebuild hello\n'
+                'build\n'
+                'rebuild\n'
+                'ctest --test-dir "$_PROJECT_LOC/build" --output-on-failure --no-tests=error\n'
+                'exit\n'
+            ),
+        )
+        self.assertIn("Hello, world!\n", result.stdout)
+        self.assertTrue((project / "bin/hello").is_file())
+        for name in ("bin", "build", "lib", "doc/out", "share"):
+            self.assertFalse((project / name / "stale-output").exists())
+        self.assertEqual((project / "src/main.cw").read_bytes(), source)
 
     def test_template_build_install_and_generated_metadata(self):
         project = self.root / "project"
