@@ -8,12 +8,34 @@ if [[ -n "${_PROJECT_NAME:-}" ]]; then
     exit 1
 fi
 
-if (( $# > 1 )); then
-    printf 'Usage: %s [debug|release|profile]\n' "$0" >&2
+usage() {
+    printf 'Usage: %s [--clean] [debug|release|profile]\n' "$0" >&2
     exit 2
-fi
+}
 
-build_type="${1:-}"
+clean_first=false
+build_type=""
+for arg in "$@"; do
+    case "$arg" in
+        --clean)
+            if [[ "$clean_first" == true ]]; then
+                usage
+            fi
+            clean_first=true
+            ;;
+        debug|release|profile)
+            if [[ -n "$build_type" ]]; then
+                usage
+            fi
+            build_type="$arg"
+            ;;
+        *)
+            printf 'Unknown argument: %s\n' "$arg" >&2
+            usage
+            ;;
+    esac
+done
+
 case "$build_type" in
     "")
         cmake_build_type=""
@@ -27,15 +49,14 @@ case "$build_type" in
     profile)
         cmake_build_type=RelWithDebInfo
         ;;
-    *)
-        printf 'Unknown build type: %s\nUsage: %s [debug|release|profile]\n' \
-            "$build_type" "$0" >&2
-        exit 2
-        ;;
 esac
 
 project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 build_dir="$project_root/build"
+
+if [[ "$clean_first" == true ]]; then
+    "$project_root/scripts/clean"
+fi
 
 if [[ -z "${CWHIP_SDK:-}" ]]; then
     config_home="${XDG_CONFIG_HOME:-}"

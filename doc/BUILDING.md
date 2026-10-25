@@ -53,7 +53,7 @@ revision: use a current rebuilt SDK for this template's callable syntax.
 
 ## Select an SDK
 
-Direct `cmake -S . -B build` and `scripts/setup` select the SDK in this exact
+`scripts/setup` (and direct CMake configuration) select the SDK in this exact
 order:
 
 1. An explicit, non-empty `CWHIP_SDK` environment variable.
@@ -134,7 +134,7 @@ explicit empty values. The helper seeds `CMAKE_INSTALL_PREFIX` and
 the corresponding cache entry is absent; explicit `-D` options, environment
 overrides, and all existing cache values take precedence.
 
-Running `scripts/setup` without an argument preserves an existing build type
+Running `scripts/setup` without a build-type argument preserves an existing build type
 or inherits the SDK's registered default. An explicit `debug`, `release`, or
 `profile` argument supplies `Debug`, `Release`, or `RelWithDebInfo` and
 overrides the build type for that configure. Direct CMake configuration uses
@@ -144,8 +144,9 @@ flags.
 
 ## Configure and build
 
-The setup script configures the `build/` directory and launches an interactive
-project shell there. Its optional build type argument is an explicit override:
+Run `scripts/setup [--clean] [debug|release|profile]` to configure the `build/`
+directory and launch an interactive project shell there. Its optional build
+type argument is an explicit override:
 
 | Argument | CMake build type |
 | --- | --- |
@@ -156,10 +157,15 @@ project shell there. Its optional build type argument is an explicit override:
 Build and run the example from the project shell:
 
 ```sh
-cmake --build .
+./scripts/setup
+build
 ctest --output-on-failure
 ../bin/hello
 ```
+
+Use `build hello` to build only the example target, or `rebuild [TARGET...]`
+to clean first and then build. These are project-shell Bash functions, so
+they do not exit the shell when a build fails.
 
 The `hello` CTest smoke test checks the greeting's output and exit status.
 It exercises the callable, parenthesized return, and dictionary in the starter.
@@ -175,13 +181,16 @@ creates an output directory only when a target needs it.
 The cache variables `CWHIP_BIN_DIR` and `CWHIP_LIB_DIR` choose output
 locations. They default to the project-root `bin/` and `lib/`; native runtime
 targets use the former, and native library/archive targets use the latter.
-For example:
+Direct CMake configuration is useful here because setup deliberately accepts
+only cleanup and build-type arguments, not arbitrary cache options. For example,
+from the project root, outside a project shell:
 
 ```sh
 cmake -S . -B build \
   -DCWHIP_BIN_DIR="$PWD/out/bin" \
   -DCWHIP_LIB_DIR="$PWD/out/lib"
-cmake --build build
+./scripts/setup
+build
 ```
 
 The starter Cwhip executable follows `CWHIP_BIN_DIR`. Generated output
@@ -189,13 +198,24 @@ directories are ignored by Git.
 
 ## Clean
 
-Use CMake's normal clean target to remove generated build artifacts:
+For a fresh build environment, exit any active project shell, then run:
 
 ```sh
-cmake --build build --target clean
+./scripts/setup --clean debug
+build
 ```
 
-Rebuilding recreates the required output directories.
+`--clean` also works after the build type, or without a build type to inherit
+the SDK default. It calls `scripts/clean` before configuring, deleting `bin/`,
+`build/`, `lib/`, `doc/out/`, and `share/`, including the CMake cache, but not
+sources or user configuration. It does not remove custom output directories
+outside those paths.
+
+Inside the project shell, `rebuild` cleans and builds while preserving the
+configuration. The standalone `scripts/clean` (also available as `clean` in
+the project shell) deletes all the default build/staging directories without
+reconfiguring. After `clean`, exit the project shell and run `scripts/setup`
+again before building.
 
 ## Test template discovery
 

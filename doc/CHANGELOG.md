@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add `scripts/setup --clean` in either argument order to remove generated
+  directories before configuration. Move `build` and `rebuild` into
+  `.project_env` as shell functions and retain the standalone `clean` script.
+  Document the setup-based workflow and cover cleanup and build commands.
 - Showcase current callable types, parenthesized returns, and multiline
   dictionary literals in the greeting starter while preserving its output.
   Document the current syntax and correct the native-width alias guidance.

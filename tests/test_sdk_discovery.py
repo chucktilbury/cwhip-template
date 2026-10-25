@@ -35,6 +35,10 @@ class SdkDiscoveryTests(unittest.TestCase):
         ):
             self.env.pop(name, None)
         self.env["HOME"] = str(self.home)
+        for name in ("XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME"):
+            self.env[name] = str(self.home / name.lower())
+        self.env["XDG_CONFIG_HOME"] = str(self.home / ".config")
+        self.env["CWHIP_REGISTER_SDK"] = "OFF"
         self.fallback = self.make_sdk("fallback")
         self.env["CMAKE_PREFIX_PATH"] = str(self.fallback)
         self.shell_record = self.root / "shell-sdk.txt"
@@ -43,6 +47,7 @@ class SdkDiscoveryTests(unittest.TestCase):
         shell = tools / "bash"
         shell.write_text(
             '#!/bin/sh\n'
+            'if [ "${1-}" != "--rcfile" ]; then exec /bin/bash "$@"; fi\n'
             'printf "%s" "${CWHIP_SDK-}" > "$SHELL_RECORD"\n'
             'printf "%s" "${CWHIP_BUILD_TYPE-}" > "$SHELL_BUILD_TYPE_RECORD"\n'
         )
@@ -287,6 +292,88 @@ class SdkDiscoveryTests(unittest.TestCase):
         cache = (self.build / "CMakeCache.txt").read_text()
         self.assertIn("CMAKE_BUILD_TYPE:STRING=Debug", cache)
         self.assertEqual(self.shell_build_type_record.read_text(), "Debug")
+
+    def test_setup_clean_removes_outputs_before_configuring(self):
+        for args, expected in (
+            (("--clean",), "Release"),
+            (("--clean", "debug"), "Debug"),
+            (("debug", "--clean"), "Debug"),
+            (("--clean", "release"), "Release"),
+            (("release", "--clean"), "Release"),
+            (("--clean", "profile"), "RelWithDebInfo"),
+            (("profile", "--clean"), "RelWithDebInfo"),
+        ):
+            with self.subTest(args=args):
+                self.run_configure(extra=("-DCMAKE_BUILD_TYPE=Debug",))
+                for name in ("bin", "build", "lib", "doc/out", "share"):
+                    directory = self.project / name
+                    directory.mkdir(parents=True, exist_ok=True)
+                    (directory / "stale-output").write_text("generated")
+                source = (self.project / "src/main.cw").read_bytes()
+                self.run_configure(setup=True, extra=args)
+                self.assertTrue((self.build / "CMakeCache.txt").is_file())
+                self.assertEqual(self.shell_build_type_record.read_text(), expected)
+                for name in ("bin", "build", "lib", "doc/out", "share"):
+                    self.assertFalse((self.project / name / "stale-output").exists())
+                self.assertEqual((self.project / "src/main.cw").read_bytes(), source)
+                self.assertTrue((self.project / "doc").is_dir())
+
+    def test_setup_without_clean_keeps_existing_outputs(self):
+        self.build.mkdir()
+        marker = self.build / "keep"
+        marker.touch()
+        self.run_configure(setup=True)
+        self.assertTrue(marker.exists())
+
+    def test_setup_clean_failure_stops_before_configuration(self):
+        (self.project / "scripts/clean").write_text(
+            '#!/bin/bash\nprintf "Cleanup failed\\n" >&2\nexit 7\n'
+        )
+        result = subprocess.run(
+            ["/bin/bash", str(self.project / "scripts/setup"), "--clean"],
+            cwd=self.root, env=self.env, capture_output=True, text=True,
+            timeout=30,
+        )
+        self.assertEqual(result.returncode, 7, result.stderr)
+        self.assertIn("Cleanup failed", result.stderr)
+        self.assertFalse((self.build / "CMakeCache.txt").exists())
+        self.assertFalse(self.shell_record.exists())
+
+    def test_setup_usage_errors_do_not_clean_or_open_shell(self):
+        self.build.mkdir()
+        marker = self.build / "keep"
+        marker.touch()
+        for args in (
+            ("--unknown",), ("invalid",), ("",), ("debug", "release"),
+            ("--clean", "--clean"), ("--clean", "debug", "extra"),
+            ("--clean", "--unknown"),
+        ):
+            with self.subTest(args=args):
+                result = subprocess.run(
+                    ["/bin/bash", str(self.project / "scripts/setup"), *args],
+                    cwd=self.root, env=self.env, capture_output=True, text=True,
+                    timeout=30,
+                )
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn("[--clean] [debug|release|profile]", result.stderr)
+                self.assertTrue(marker.exists())
+                self.assertFalse(self.shell_record.exists())
+
+    def test_setup_active_shell_guard_precedes_clean_and_argument_parsing(self):
+        self.env["_PROJECT_NAME"] = "active-project"
+        self.build.mkdir()
+        marker = self.build / "keep"
+        marker.touch()
+        for args in (("--clean",), ("--clean", "--unknown")):
+            result = subprocess.run(
+                ["/bin/bash", str(self.project / "scripts/setup"), *args],
+                cwd=self.root, env=self.env, capture_output=True, text=True,
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn("already active", result.stderr)
+            self.assertTrue(marker.exists())
+            self.assertFalse(self.shell_record.exists())
 
     def test_sdk_config_survives_preferences_rewrite(self):
         prefix = self.make_sdk('dedicated SDK with "quotes" ')
