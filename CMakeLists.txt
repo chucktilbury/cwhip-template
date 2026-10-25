@@ -71,6 +71,8 @@ cwhip_apply_application_defaults()
 
 project(cwhip_template LANGUAGES C)
 
+include(CTest)
+
 set(CWHIP_BIN_DIR "${PROJECT_SOURCE_DIR}/bin" CACHE PATH
     "Directory for project executables")
 set(CWHIP_LIB_DIR "${PROJECT_SOURCE_DIR}/lib" CACHE PATH
@@ -100,3 +102,9 @@ cwhip_add_program(hello
     OUTPUT_DIRECTORY "${CWHIP_BIN_DIR}")
 get_target_property(hello_executable hello CWHIP_EXECUTABLE)
 install(PROGRAMS "${hello_executable}" DESTINATION bin)
+
+if(BUILD_TESTING)
+    add_test(NAME hello COMMAND "${CMAKE_COMMAND}"
+        "-DHELLO_EXECUTABLE=${hello_executable}"
+        -P "${PROJECT_SOURCE_DIR}/tests/check-hello.cmake")
+endif()
