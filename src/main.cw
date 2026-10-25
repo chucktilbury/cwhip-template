@@ -1,6 +1,9 @@
 class Greeter {
     String message(String name) {
-        return("Hello, " + name + "!\n")
+        String text = "Hello, "
+        text.append(name)
+        text.append("!\n")
+        return(text)
     }
 }
 
