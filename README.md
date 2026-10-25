@@ -4,32 +4,12 @@ A small starter project for building CWhip applications against an installed
 CWhip SDK. The example program lives in `src/main.cw`; CMake builds it into the
 project's `bin/` directory.
 
-## Get started
+`src/` contains a small greeting class, a bound-method callable, and a
+multiline dictionary using current Cwhip syntax. `scripts/` provides SDK
+discovery and project-shell commands; `tests/` covers discovery and opt-in
+build/install checks against a real SDK.
 
-Install the complete CWhip **0.0.2 SDK with the `numeric-v2` ABI** and its host
-prerequisites. Older SDKs and missing/mismatched ABI identifiers are rejected.
-Rebuild native packages against this SDK before using them; changing their
-metadata alone does not migrate their ABI. SDK selection
-uses a non-empty `CWHIP_SDK` override first, then the top-level `sdk_prefix`
-string in `$XDG_CONFIG_HOME/cwhip/sdk.toml` (or
-`$HOME/.config/cwhip/sdk.toml` when `XDG_CONFIG_HOME` is unset/empty).
-Only when `sdk.toml` is absent is the legacy `settings.toml` consulted.
-Without a selected prefix, use normal CMake discovery
-through `CMAKE_PREFIX_PATH` or `Cwhip_DIR`. Both direct CMake configuration and
-`scripts/setup` use this order. Reading settings requires Python 3.11+.
-Then start the project shell and build:
-
-```sh
-./scripts/setup
-cmake --build .
-../bin/hello
-```
-
-With no setup argument, the project inherits the SDK's registered application
-build type when available. Pass `debug`, `release`, or `profile` to explicitly
-select a build type, for example `./scripts/setup release`.
-
-See [Building](doc/BUILDING.md) for SDK selection and output-directory
-customization and application defaults, and [Project shell](doc/PROJECT-SHELL.md)
-for the shell environment and available commands. See the
-[changelog](doc/CHANGELOG.md) for template updates.
+See [Building](doc/BUILDING.md) for prerequisites, SDK selection, build/run/test
+commands, and output customization; [Syntax](doc/SYNTAX.md) for the example
+and migration notes; [Project shell](doc/PROJECT-SHELL.md) for the interactive
+environment; and the [changelog](doc/CHANGELOG.md) for template updates.

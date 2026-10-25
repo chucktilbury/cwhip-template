@@ -21,7 +21,7 @@ class SdkDiscoveryTests(unittest.TestCase):
         self.project.mkdir()
         for name in ("CMakeLists.txt", ".project_env"):
             shutil.copy2(ROOT / name, self.project / name)
-        for name in ("scripts", "src"):
+        for name in ("scripts", "src", "tests"):
             shutil.copytree(ROOT / name, self.project / name)
         self.home = self.root / "home"
         self.home.mkdir()
@@ -141,6 +141,36 @@ class SdkDiscoveryTests(unittest.TestCase):
         cache = (self.build / "CMakeCache.txt").read_text()
         self.assertIn(f"CMAKE_INSTALL_PREFIX:PATH={self.root}/registered-install", cache)
         self.assertIn("CMAKE_BUILD_TYPE:STRING=Release", cache)
+
+    def test_ctest_registers_sdk_executable(self):
+        self.run_configure()
+        tests = (self.build / "CTestTestfile.cmake").read_text()
+        self.assertIn('add_test([=[hello]=]', tests)
+        self.assertIn(f'"-DHELLO_EXECUTABLE={self.build}/hello"', tests)
+        self.assertIn(f'"{self.project}/tests/check-hello.cmake"', tests)
+
+    def test_ctest_can_be_disabled(self):
+        self.run_configure(extra=("-DBUILD_TESTING=OFF",))
+        self.assertFalse((self.build / "CTestTestfile.cmake").exists())
+
+    def test_greeting_check_rejects_bad_output_and_exit_status(self):
+        executable = self.root / "hello"
+        for body, success in (
+            ('printf "Hello, world!\\n"', True),
+            ('printf "Hello, world!\\n"; exit 1', False),
+            ('printf "wrong greeting\\n"', False),
+            ('printf "Hello, world!\\n"; printf "error\\n" >&2', False),
+        ):
+            with self.subTest(body=body):
+                executable.write_text(f"#!/bin/sh\n{body}\n")
+                executable.chmod(0o755)
+                result = subprocess.run(
+                    ["cmake", f"-DHELLO_EXECUTABLE={executable}", "-P",
+                     str(self.project / "tests/check-hello.cmake")],
+                    cwd=self.root, env=self.env, capture_output=True,
+                    text=True, timeout=30,
+                )
+                self.assertEqual(result.returncode == 0, success, result.stderr)
 
     def test_incompatible_sdk_version_never_falls_back_or_opens_shell(self):
         self.run_configure()

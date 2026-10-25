@@ -24,9 +24,11 @@ an explicitly selected rebuilt development SDK; the old installed SDK is not
 compatible. The hello-world starter has no numeric declarations, native
 examples, or checked-in package manifests to migrate.
 
-For applications derived from the template, replace removed Cwhip types `int`,
-`unsigned`, and `float` with `int64`, `uint64`, and `fp64` where preserving the
-old width is intended. All fixed-width types are supported: `int8/16/32/64`,
+For applications derived from older templates, use `int64`, `uint64`, and
+`fp64` where preserving the old 64-bit width is intended. The native aliases
+`int`, `uint`, and `float` now mean `int32`, `uint32`, and `fp32`;
+`unsigned` is reserved and rejected with a migration diagnostic.
+All fixed-width types are supported: `int8/16/32/64`,
 `uint8/16/32/64`, and `fp32/64`. String parsers are now `toInt8/16/32/64`,
 `toUint8/16/32/64`, and `toFp32/64`. These slash-separated names describe
 individual methods, such as `toInt64()` and `toFp64()`.
@@ -44,6 +46,10 @@ Only after rebuilding, declare `sdk-abi = "numeric-v2"` in each package's
 package ABI metadata. The SDK application helper generates project metadata
 and a lockfile in the build tree using its own package tool; do not copy an old
 generated project or relabel stale native artifacts.
+
+See [Syntax](SYNTAX.md) for current source spelling and the greeting example.
+The `numeric-v2` ABI marker alone does not identify a compiler's syntax
+revision: use a current rebuilt SDK for this template's callable syntax.
 
 ## Select an SDK
 
@@ -151,8 +157,13 @@ Build and run the example from the project shell:
 
 ```sh
 cmake --build .
+ctest --output-on-failure
 ../bin/hello
 ```
+
+The `hello` CTest smoke test checks the greeting's output and exit status.
+It exercises the callable, parenthesized return, and dictionary in the starter.
+Set `-DBUILD_TESTING=OFF` at configuration time to omit it.
 
 The Cwhip application helper writes generated sources and package metadata
 inside the build tree. The compiled application is written directly to
@@ -201,9 +212,10 @@ SDK search path without requiring an installed CWhip compiler or user input.
 It also rejects old/newer SDK versions and missing or incompatible ABI markers
 before setup can enter a project shell.
 
-To additionally build and install a temporary copy of the starter, execute both
-its built and installed hello-world binaries, and check generated package ABI
-metadata and stale-package rejection against a real SDK:
+To additionally build and run CTest on a temporary copy of the starter, install
+it, execute both its built and installed hello-world binaries, and check generated package ABI
+metadata and stale-package rejection against a real SDK supporting the
+current syntax:
 
 ```sh
 CWHIP_TEST_SDK=/absolute/path/to/numeric-v2/sdk \

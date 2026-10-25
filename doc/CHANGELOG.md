@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Showcase current callable types, parenthesized returns, and multiline
+  dictionary literals in the greeting starter while preserving its output.
+  Document the current syntax and correct the native-width alias guidance.
+- Add a CTest greeting smoke test and exercise it in the real-SDK integration
+  suite alongside the built and installed executable checks.
 - Require Cwhip SDK 0.0.2 and its `numeric-v2` ABI; reject missing or
   incompatible SDK markers before applying application defaults. Update mock
   SDKs, add version/ABI rejection coverage and an opt-in real-SDK private

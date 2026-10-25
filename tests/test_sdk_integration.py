@@ -54,7 +54,7 @@ class SdkIntegrationTests(unittest.TestCase):
         project = self.root / "project"
         project.mkdir()
         shutil.copy2(ROOT / "CMakeLists.txt", project)
-        for name in ("src", "scripts"):
+        for name in ("src", "scripts", "tests"):
             shutil.copytree(ROOT / name, project / name)
         build = self.root / "build"
         install = self.root / "install"
@@ -65,6 +65,10 @@ class SdkIntegrationTests(unittest.TestCase):
             f"-DCWHIP_BIN_DIR={output / 'bin'}", f"-DCWHIP_LIB_DIR={output / 'lib'}",
         )
         self.run_command("cmake", "--build", str(build), "--parallel", "2")
+        self.run_command(
+            "ctest", "--test-dir", str(build), "--output-on-failure",
+            "--no-tests=error",
+        )
         self.run_command("cmake", "--install", str(build))
         for executable in (output / "bin/hello", install / "bin/hello"):
             result = self.run_command(str(executable))
