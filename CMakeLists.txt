@@ -106,5 +106,5 @@ install(PROGRAMS "${hello_executable}" DESTINATION bin)
 if(BUILD_TESTING)
     add_test(NAME hello COMMAND "${CMAKE_COMMAND}"
         "-DHELLO_EXECUTABLE=${hello_executable}"
-        -P "${PROJECT_SOURCE_DIR}/tests/check-hello.cmake")
+        -P "${PROJECT_SOURCE_DIR}/tests/check-greeting.cmake")
 endif()
