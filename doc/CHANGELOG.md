@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Rename the CTest greeting script to `tests/check-greeting.cmake`.
+  `cwhip-pkg new` rewrites `hello` in text but never renames files, so projects
+  it created referenced a missing `tests/check-NAME.cmake` and failed `ctest`.
+  Add a regression test that no tracked path contains `hello`.
 - Add `scripts/setup --clean` in either argument order to remove generated
   directories before configuration. Move `build` and `rebuild` into
   `.project_env` as shell functions and retain the standalone `clean` script.

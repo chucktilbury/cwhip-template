@@ -152,7 +152,7 @@ class SdkDiscoveryTests(unittest.TestCase):
         tests = (self.build / "CTestTestfile.cmake").read_text()
         self.assertIn('add_test([=[hello]=]', tests)
         self.assertIn(f'"-DHELLO_EXECUTABLE={self.build}/hello"', tests)
-        self.assertIn(f'"{self.project}/tests/check-hello.cmake"', tests)
+        self.assertIn(f'"{self.project}/tests/check-greeting.cmake"', tests)
 
     def test_ctest_can_be_disabled(self):
         self.run_configure(extra=("-DBUILD_TESTING=OFF",))
@@ -171,7 +171,7 @@ class SdkDiscoveryTests(unittest.TestCase):
                 executable.chmod(0o755)
                 result = subprocess.run(
                     ["cmake", f"-DHELLO_EXECUTABLE={executable}", "-P",
-                     str(self.project / "tests/check-hello.cmake")],
+                     str(self.project / "tests/check-greeting.cmake")],
                     cwd=self.root, env=self.env, capture_output=True,
                     text=True, timeout=30,
                 )
